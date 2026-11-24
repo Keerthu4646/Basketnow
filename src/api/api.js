@@ -1,49 +1,59 @@
-// MOCK BACKEND. Behaves like a real REST API: every call is async, takes time, and can fail.
-// Do not import SEED_PRODUCTS directly in components - always go through these functions.
-import { SEED_PRODUCTS } from "../data/products";
-import { SERVICEABLE_PREFIXES } from "../data/config";
-
-let simulateErrors = false;
-
-/** Developer switch used by the footer "Simulate API errors" toggle. */
-export function setSimulateErrors(value) {
-  simulateErrors = value;
+// API service functions: the ONLY place that knows URLs and HTTP methods.
+// Components call fetchProducts(), placeOrder(), ... and never write "/api/..." themselves.
+// The function names are the same as in the old in-browser mock, so most components did not change.
+import { http, fetchJson } from "./client";
+export { setSimulateErrors } from "./client";
+/** GET /api/products -> Product[] */
+export async function fetchProducts({ signal } = {}) {
+  const response = await http.get("/products", { signal });
+  return response.data;                             // axios already parsed the JSON
 }
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/** GET /api/products/:id -> Product */
+export async function fetchProduct(productId, { signal } = {}) {
+  const { data } = await http.get(`/products/${encodeURIComponent(productId)}`, { signal });
+  return data;
 }
-
-function deepCopy(value) {
-  return JSON.parse(JSON.stringify(value));
+/** GET /api/pincodes/:pincode -> { pincode, serviceable, city }  (written with fetch, to compare) */
+export function checkPincode(pincode, { signal } = {}) {
+  return fetchJson(`/pincodes/${pincode}`, { signal });
 }
-
-/** GET /products -> Product[] (about 900 ms). */
-export async function fetchProducts() {
-  await wait(900);
-  if (simulateErrors) throw new Error("Could not load products (HTTP 503). Please try again.");
-  return deepCopy(SEED_PRODUCTS);
-}
-
-/** GET /serviceability/:pincode -> { serviceable, city } (about 400 ms). */
-export async function checkPincode(pincode) {
-  await wait(400);
-  if (simulateErrors) throw new Error("Could not verify pincode. Please try again.");
-  const city = SERVICEABLE_PREFIXES[pincode.slice(0, 3)];
-  return { serviceable: Boolean(city), city: city || null };
-}
-
 /**
- * POST /orders -> { orderId, createdAt } (about 1200 ms).
- * The server re-checks stock: `stockById` maps variantId -> units currently available.
+ * POST /api/orders -> the created order. Send ids and quantities only - the server decides prices.
+ * The Idempotency-Key makes a retry safe: the same key twice returns the SAME order, never a second one.
  */
-export async function placeOrder({ lines, stockById }) {
-  await wait(1200);
-  if (simulateErrors) throw new Error("Payment gateway timeout (HTTP 504). You have not been charged.");
-  const unavailable = lines.find((line) => line.qty > (stockById[line.variantId] ?? 0));
-  if (unavailable) {
-    throw new Error(`Only ${stockById[unavailable.variantId] ?? 0} unit(s) of ${unavailable.name} left. Please update your cart.`);
-  }
-  const orderId = "BN" + Date.now().toString().slice(-8);
-  return { orderId, createdAt: Date.now() };
+export async function placeOrder(orderRequest, idempotencyKey) {
+  const { data } = await http.post("/orders", orderRequest, {
+    headers: { "Idempotency-Key": idempotencyKey },
+    timeout: 15000,
+  });
+  return data;
+}
+/** GET /api/orders -> Order[] (newest first) */
+export async function fetchOrders({ signal } = {}) {
+  const { data } = await http.get("/orders", { signal });
+  return data;
+}
+/** PATCH /api/orders/:id/cancel -> the updated order */
+export async function cancelOrder(orderId) {
+  const { data } = await http.patch(`/orders/${encodeURIComponent(orderId)}/cancel`);
+  return data;
+}
+// ---------- inventory (store manager) ----------
+/** PATCH /api/variants/:id  { stock } -> { variantId, stock } */
+export async function updateStock(variantId, stock) {
+  const { data } = await http.patch(`/variants/${encodeURIComponent(variantId)}`, { stock });
+  return data;
+}
+/** POST /api/products -> the created product (the server gives it an id). 400 with fields if invalid. */
+export async function addProduct(values) {
+  const { data } = await http.post("/products", values);
+  return data;
+}
+/** DELETE /api/products/:id -> nothing (HTTP 204 No Content) */
+export async function deleteProduct(productId) {
+  await http.delete(`/products/${encodeURIComponent(productId)}`);
+}
+/** POST /api/reset -> restore the original demo catalogue and remove all orders */
+export async function resetDemoData() {
+  await http.post("/reset");
 }

@@ -286,7 +286,3 @@ input, select { font: inherit; }
 a.logo, a.tab { text-decoration: none; }
 .search form { flex: 1; display: flex; }
 
-/* ---------- placeholders for unfinished work: delete when all tickets are done ---------- */
-.todo { border: 2px dashed #f59e0b; background: #fffbeb; color: #92400e; border-radius: 10px; padding: 10px 14px; margin: 8px 0; font-size: 14px; }
-.todo b { margin-right: 6px; }
-.todo-intro { border-color: #0c831f; background: #edf8ef; color: #08671a; }

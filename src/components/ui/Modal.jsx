@@ -1,14 +1,29 @@
+import { useEffect } from "react";
 /**
- * TODO BN-701 - Modal dialog
- * Props: isOpen, title, onClose, children, footer
- * - return null when !isOpen
- * - clicking the dark backdrop calls onClose; clicks inside the box must NOT (stopPropagation)
- * - pressing Escape calls onClose: add a keydown listener in useEffect, remove it in the cleanup
- * CSS: overlay, modal, modal-head, modal-body, modal-foot, icon-btn
+ * Accessible dialog. Renders nothing when closed.
+ * Closes on backdrop click and on the Escape key (listener added on mount, removed on unmount).
  */
-function Modal({ isOpen }) {
+function Modal({ isOpen, title, onClose, children, footer }) {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    function handleKey(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
   if (!isOpen) return null;
-  return null; // TODO
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-foot">{footer}</div>}
+      </div>
+    </div>
+  );
 }
-
 export default Modal;

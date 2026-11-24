@@ -1,9 +1,15 @@
-/**
- * TODO BN-804 - Catch-all page for unknown URLs (route path="*").
- * EmptyState with the wrong path (useLocation) and a <Link to="/"> back to the shop.
- */
+import { Link, useLocation } from "react-router-dom";
+import EmptyState from "../ui/EmptyState";
+/** Route path="*": any URL that no other route matched. */
 function NotFoundPage() {
-  return null;
+  const { pathname } = useLocation();
+  return (
+    <EmptyState
+      icon="🧭"
+      title="Page not found"
+      message={<>Nothing lives at <span className="not-found-path">{pathname}</span>.</>}
+      action={<Link className="btn btn-primary btn-md" to="/">Go to the shop</Link>}
+    />
+  );
 }
-
 export default NotFoundPage;
